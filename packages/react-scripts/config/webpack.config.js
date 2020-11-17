@@ -88,7 +88,9 @@ const hasJsxRuntime = (() => {
 
 // This is the production and development configuration.
 // It is focused on developer experience, fast rebuilds, and a minimal bundle.
-module.exports = function(webpackEnv) {
+// Original CRA version: module.exports = function(webpackEnv) {
+// sharetribe-scripts need target
+module.exports = function(webpackEnv, target = 'web') {
   const isEnvDevelopment = webpackEnv === 'development';
   const isEnvProduction = webpackEnv === 'production';
 
@@ -425,6 +427,7 @@ module.exports = function(webpackEnv) {
                 ),
                 // @remove-on-eject-end
                 plugins: [
+                  require.resolve('@loadable/babel-plugin'),
                   [
                     require.resolve('babel-plugin-named-asset-import'),
                     {
@@ -464,6 +467,9 @@ module.exports = function(webpackEnv) {
                     require.resolve('babel-preset-react-app/dependencies'),
                     { helpers: true },
                   ],
+                ],
+                plugins: [
+                  require.resolve('@loadable/babel-plugin'),
                 ],
                 cacheDirectory: true,
                 // See #6846 for context on why cacheCompression is disabled
@@ -773,5 +779,5 @@ module.exports = function(webpackEnv) {
   };
 
   // Before config is ready to be returned, we need to add our configurations to it.
-  return sharetribeConfigUtils.applySharetribeConfigs(config, isEnvProduction);
+  return sharetribeConfigUtils.applySharetribeConfigs(config, isEnvProduction, target, paths);
 };

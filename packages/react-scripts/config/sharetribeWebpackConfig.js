@@ -1,5 +1,9 @@
 'use strict';
 
+const path = require('path');
+//const nodeExternals = require('webpack-node-externals');
+const LoadablePlugin = require('@loadable/webpack-plugin');
+
 // PostCSS plugins:
 // - postcss-import, postcss-apply are our additions
 // - postcss-preset-env: we use nesting and custom-media-queries.
@@ -52,30 +56,60 @@ const checkConfigStructure = config => {
   return configStructureKnown;
 };
 
-const applySharetribeConfigs = (config, isEnvProduction) => {
+const applySharetribeConfigs = (config, isEnvProduction, target, paths) => {
   checkConfigStructure(config);
-  const productionBuildOutputMaybe = isEnvProduction
+  const isNodeBuild = target === 'node';
+
+  const productionBuildOutputMaybe = isEnvProduction && isNodeBuild
     ? {
+        path: path.join(config.output.path, 'node'),
         // universal build
-        libraryTarget: 'umd',
+        libraryTarget: 'commonjs2',
         // Fix bug on universal build
         // https://github.com/webpack/webpack/issues/6784
         globalObject: `(typeof self !== 'undefined' ? self : this)`,
+
+        filename: 'js/[name].[contenthash:8].js',
+        chunkFilename: 'js/[name].[contenthash:8].chunk.js',
       }
     : {};
+
+  const customOptimization = (optimization) => {
+    return isNodeBuild
+    ? { optimization:
+        {
+          // splitChunks: {
+          //   // Don't use chunks yet - we need to create a separate server config/build for that
+          //   cacheGroups: {
+          //     default: false,
+          //   },
+          // },
+          // // Don't use chunks yet - we need to create a separate server config/build for that
+          // runtimeChunk: false,
+          minimize: false,
+        },
+      }
+    : { optimization };
+  };
+
+  const productionBuildMiscMaybe = isNodeBuild
+    ? {
+        name: 'node', // Name the build
+        target: 'node', // Ignore built-in modules like path, fs, etc.
+        entry: paths.appIndexServerJs, // TODO `./src/client/main-${target}.js`,
+        externals: [
+          '@loadable/component',
+          //nodeExternals(), // Ignore all modules in node_modules folder
+        ],
+      }
+    : {};
+
   return config.optimization
     ? Object.assign({}, config, {
-        optimization: Object.assign({}, config.optimization, {
-          splitChunks: {
-            // Don't use chunks yet - we need to create a separate server config/build for that
-            cacheGroups: {
-              default: false,
-            },
-          },
-          // Don't use chunks yet - we need to create a separate server config/build for that
-          runtimeChunk: false,
-        }),
-        output: Object.assign({}, config.output, productionBuildOutputMaybe),
+        ...productionBuildMiscMaybe,
+        ...customOptimization(config.optimization),
+        output: { ...config.output, ...productionBuildOutputMaybe },
+        plugins: [new LoadablePlugin(), ...config.plugins],
       })
     : config;
 };
